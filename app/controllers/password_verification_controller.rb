@@ -8,8 +8,8 @@ class PasswordVerificationController < ApplicationController
         render json: { error: "Too many requests. Try again later." 
     }, status: :too_many_requests }
 
-    PASSWORD_CACHE = {}
-    PWNED_CACHE = {}
+    PASSWORD_TTL = (ENV['PASSWORD_TTL'] || 3600).to_i
+    PWNED_TTL = (ENV['PWNED_TTL'] || 3600).to_i
 
     def welcome
         render :index    # explicitly render index.html.erb
@@ -21,18 +21,23 @@ class PasswordVerificationController < ApplicationController
         if data['password'].present?
 
             password = data['password'].to_s
-
-            result = PASSWORD_CACHE[password] ||= Zxcvbn.test(password)
+            pwd_hash = Digest::SHA256.hexdigest(password)
+            entry = Rails.cache.fetch("password_verify/#{pwd_hash}", expires_in: PASSWORD_TTL.seconds) do
+                result = Zxcvbn.test(password)
+                {
+                    score: result.score,
+                    crack_time: result.crack_time,
+                    crack_time_display: result.crack_time_display,
+                    feedback: { warning: result.feedback.warning, suggestions: result.feedback.suggestions }
+                }
+            end
 
             render json: {
                 password: password,
-                score: result.score,
-                crack_time: result.crack_time,
-                crack_time_display: result.crack_time_display,
-                feedback: {
-                warning: result.feedback.warning,
-                suggestions: result.feedback.suggestions
-                }
+                score: entry[:score],
+                crack_time: entry[:crack_time],
+                crack_time_display: entry[:crack_time_display],
+                feedback: entry[:feedback]
             }
 
         else
@@ -55,7 +60,7 @@ class PasswordVerificationController < ApplicationController
             suffix = sha1[5..-1]
 
             url = URI("https://api.pwnedpasswords.com/range/#{prefix}")
-            response = PWNED_CACHE[prefix] ||= Net::HTTP.get(url)
+            response = Rails.cache.fetch("pwned/#{prefix}", expires_in: PWNED_TTL.seconds) { Net::HTTP.get(url) }
 
             
             pwned = false
@@ -89,18 +94,22 @@ class PasswordVerificationController < ApplicationController
         length = 16 if length <= 0
 
         password = generate_password(length)
-
-        result = PASSWORD_CACHE[password] ||= Zxcvbn.test(password)
-
+        pwd_hash = Digest::SHA256.hexdigest(password)
+        entry = Rails.cache.fetch("password_verify/#{pwd_hash}", expires_in: PASSWORD_TTL.seconds) do
+            result = Zxcvbn.test(password)
+            {
+                score: result.score,
+                crack_time: result.crack_time,
+                crack_time_display: result.crack_time_display,
+                feedback: { warning: result.feedback.warning, suggestions: result.feedback.suggestions }
+            }
+        end
         render json: {
             password: password,
-            score: result.score,
-            crack_time: result.crack_time,
-            crack_time_display: result.crack_time_display,
-            feedback: {
-            warning: result.feedback.warning,
-            suggestions: result.feedback.suggestions
-            }
+            score: entry[:score],
+            crack_time: entry[:crack_time],
+            crack_time_display: entry[:crack_time_display],
+            feedback: entry[:feedback]
         }
     end
 
