@@ -7,6 +7,7 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   # root "posts#index"
+  root to: redirect("/index.html")
 
   post "/password/check", to: "password_verification#check"
   post "/password/haveibeenpwned", to: "password_verification#haveIbeenPwned"

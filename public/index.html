@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Password API</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      padding: 24px;
+      max-width: 640px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin: 0 0 24px;
+      font-weight: 600;
+    }
+    section {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    section h2 {
+      font-size: 1rem;
+      margin: 0 0 12px;
+      font-weight: 600;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    input[type="text"],
+    input[type="password"],
+    input[type="number"] {
+      flex: 1;
+      padding: 8px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    input[type="number"] {
+      flex: none;
+      width: 70px;
+    }
+    button {
+      padding: 8px 16px;
+      border: 1px solid #333;
+      border-radius: 6px;
+      background: #333;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #555;
+    }
+    pre {
+      margin: 0;
+      padding: 12px;
+      background: #f8f8f8;
+      border: 1px solid #eee;
+      border-radius: 6px;
+      font-size: 12px;
+      overflow: auto;
+      max-height: 200px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    pre.empty {
+      color: #888;
+      font-style: italic;
+    }
+    .status {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Password API</h1>
+
+  <section>
+    <h2>Strength check (POST /password/check)</h2>
+    <div class="row">
+      <input id="check-password" type="password" placeholder="Password" autocomplete="off" />
+      <button id="btn-check">Check</button>
+    </div>
+    <div class="status" id="status-check"></div>
+    <pre class="empty" id="output-check">—</pre>
+  </section>
+
+  <section>
+    <h2>Have I been pwned (POST /password/haveibeenpwned)</h2>
+    <div class="row">
+      <input id="pwned-password" type="password" placeholder="Password" autocomplete="off" />
+      <button id="btn-pwned">Check</button>
+    </div>
+    <div class="status" id="status-pwned"></div>
+    <pre class="empty" id="output-pwned">—</pre>
+  </section>
+
+  <section>
+    <h2>Generate (GET /password/generate)</h2>
+    <div class="row">
+      <input id="generate-length" type="number" min="4" max="128" value="16" />
+      <button id="btn-generate">Generate</button>
+    </div>
+    <div class="status" id="status-generate"></div>
+    <pre class="empty" id="output-generate">—</pre>
+  </section>
+
+  <script>
+    function formatJson(data) {
+      try {
+        return JSON.stringify(data, null, 2);
+      } catch {
+        return String(data);
+      }
+    }
+
+    function setStatus(id, msg) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = msg;
+    }
+
+    function setOutput(id, content, empty) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = content || '—';
+      el.classList.toggle('empty', !!empty);
+    }
+
+    async function postJson(path, body) {
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(body || {}),
+      });
+      const text = await res.text();
+      let json;
+      try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
+      if (!res.ok) throw { status: res.status, data: json };
+      return json;
+    }
+
+    async function getJson(path, params) {
+      const url = new URL(path, window.location.origin);
+      if (params) Object.entries(params).forEach(([k, v]) => {
+        if (v != null && v !== '') url.searchParams.set(k, String(v));
+      });
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const text = await res.text();
+      let json;
+      try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
+      if (!res.ok) throw { status: res.status, data: json };
+      return json;
+    }
+
+    document.getElementById('btn-check').addEventListener('click', async () => {
+      const password = document.getElementById('check-password').value.trim();
+      if (!password) {
+        setStatus('status-check', 'Enter a password.');
+        setOutput('output-check', '', true);
+        return;
+      }
+      setStatus('status-check', 'Loading…');
+      setOutput('output-check', '', true);
+      try {
+        const json = await postJson('/password/check', { password });
+        setStatus('status-check', '');
+        setOutput('output-check', formatJson(json), false);
+      } catch (err) {
+        setStatus('status-check', err.status ? 'Error ' + err.status : 'Request failed');
+        setOutput('output-check', formatJson(err.data || err), false);
+      }
+    });
+
+    document.getElementById('btn-pwned').addEventListener('click', async () => {
+      const password = document.getElementById('pwned-password').value.trim();
+      if (!password) {
+        setStatus('status-pwned', 'Enter a password.');
+        setOutput('output-pwned', '', true);
+        return;
+      }
+      setStatus('status-pwned', 'Loading…');
+      setOutput('output-pwned', '', true);
+      try {
+        const json = await postJson('/password/haveibeenpwned', { password });
+        setStatus('status-pwned', '');
+        setOutput('output-pwned', formatJson(json), false);
+      } catch (err) {
+        setStatus('status-pwned', err.status ? 'Error ' + err.status : 'Request failed');
+        setOutput('output-pwned', formatJson(err.data || err), false);
+      }
+    });
+
+    document.getElementById('btn-generate').addEventListener('click', async () => {
+      let length = parseInt(document.getElementById('generate-length').value, 10) || 16;
+      length = Math.max(4, Math.min(128, length));
+      document.getElementById('generate-length').value = length;
+      setStatus('status-generate', 'Loading…');
+      setOutput('output-generate', '', true);
+      try {
+        const json = await getJson('/password/generate', { length });
+        setStatus('status-generate', '');
+        setOutput('output-generate', formatJson(json), false);
+      } catch (err) {
+        setStatus('status-generate', err.status ? 'Error ' + err.status : 'Request failed');
+        setOutput('output-generate', formatJson(err.data || err), false);
+      }
+    });
+
+    document.getElementById('check-password').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('btn-check').click();
+    });
+    document.getElementById('pwned-password').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('btn-pwned').click();
+    });
+  </script>
+</body>
+</html>

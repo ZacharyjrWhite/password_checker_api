@@ -11,6 +11,10 @@ class PasswordVerificationController < ApplicationController
     PASSWORD_CACHE = {}
     PWNED_CACHE = {}
 
+    def welcome
+        render :index    # explicitly render index.html.erb
+    end
+
     def check
         data = JSON.parse(request.raw_post) rescue {}
 
