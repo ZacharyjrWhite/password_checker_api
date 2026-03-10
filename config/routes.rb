@@ -7,4 +7,9 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   # root "posts#index"
+
+  post "/password/check", to: "password_verification#check"
+  post "/password/haveibeenpwned", to: "password_verification#haveIbeenPwned"
+  get "/password/generate", to: "password_verification#generate"
+
 end
