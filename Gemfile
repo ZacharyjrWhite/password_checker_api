@@ -52,3 +52,5 @@ group :development, :test do
 end
 
 gem "zxcvbn-ruby"
+
+gem 'pg', '~> 1.6'
