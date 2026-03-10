@@ -25,6 +25,18 @@ Optional environment variables (with defaults):
 
 Set these in your environment or in `public/.env` for local runs. Do not commit secrets.
 
+## Caching
+
+The app uses `Rails.cache` for two things:
+
+- **Password strength results** — Key `password_verify/<sha256(password)>`. Cached after each check or generate so repeated requests for the same password reuse the zxcvbn result. TTL: `PASSWORD_TTL` seconds.
+- **Pwned API responses** — Key `pwned/<5-char-sha1-prefix>`. The Have I Been Pwned API returns a range of suffixes for a given prefix; that response is cached so multiple passwords sharing the same prefix hit the API once. TTL: `PWNED_TTL` seconds.
+
+Cache store by environment:
+
+- **Development:** `memory_store` (in-process, cleared on restart).
+- **Production:** `solid_cache_store` (database-backed via Solid Cache; see `config/cache.yml` and the `cache` DB in `config/database.yml`).
+
 ## Running
 
 ```bash
