@@ -1,6 +1,7 @@
 require 'zxcvbn'
 require 'digest/sha1'
 require 'securerandom'
+require 'net/http'
 
 class PasswordVerificationController < ApplicationController
 
