@@ -92,7 +92,3 @@ The password endpoints are rate limited (e.g. 10 requests per minute). Exceeding
 ```bash
 bundle exec rails test
 ```
-
-## License
-
-See repository.
